@@ -221,6 +221,7 @@
 
   function switchMode(nextMode) {
     mode = nextMode;
+    keypadDismissed = nextMode === 'solve';
     notify();
     actionLabel = mode === 'solve' ? 'Solve puzzle' : 'Check solution';
   }
@@ -274,12 +275,12 @@
             role="gridcell"
             aria-label={`Row ${row + 1}, column ${col + 1}, ${value || 'empty'}${givens[index] ? ', given' : ''}`}
             aria-selected={selected === index}
-            onclick={() => { selected = index; keypadDismissed = false; }}
+            onclick={() => { selected = index; if (mode === 'play') keypadDismissed = false; }}
           >{value || ''}</button>
         {/each}
       </div>
       <div class="board-footer"><span><b>{solvedCount}</b> / 81 filled</span><span>Use arrow keys · 1–9 to enter</span></div>
-      {#if !givens[selected] && !keypadDismissed}
+      {#if mode === 'play' && !givens[selected] && !keypadDismissed}
         <section class="mobile-keypad" aria-label="Sudoku number keypad">
           <div class="keypad-heading">
             <span>ENTER A NUMBER</span>
