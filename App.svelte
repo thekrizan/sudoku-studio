@@ -234,14 +234,14 @@
 <main class="shell">
   <header class="topbar">
     <div class="brand"><span class="mark" aria-hidden="true">▦</span><span>Sudoku <b>Studio</b></span></div>
-    <span class="local">LOCAL C ENGINE</span>
+    <span class="local">C-POWERED</span>
   </header>
 
   <section class="intro">
     <div>
       <p class="eyebrow">THINK IN NINES</p>
       <h1>A little logic.<br><em>A lot of satisfaction.</em></h1>
-      <p class="lede">A calm place to solve, play, and check. Every puzzle rule lives in a small C engine running on your computer.</p>
+      <p class="lede">A calm place to solve, play, and check. Every puzzle is powered by a compact C engine.</p>
     </div>
     <div class="mini-note"><span>01 / 02</span><p>Choose your mode<br>and make your next move.</p></div>
   </section>
