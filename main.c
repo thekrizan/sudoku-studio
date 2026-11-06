@@ -415,14 +415,16 @@ static int runSelfTests(void) {
 /* Forward CivetWeb diagnostics to stderr for local troubleshooting. */
 static int logMessage(const struct mg_connection *connection, const char *message) { (void)connection; fprintf(stderr, "CivetWeb: %s\n", message); return 0; }
 
-/* Configure a loopback-only HTTP server and serve the Vite output directory. */
+/* Configure the HTTP server and serve the Vite output directory. */
 int main(int argc, char **argv) {
     const char *root = ".";
-    char listen[32];
+    const char *host = getenv("HOST");
+    const char *portSetting = getenv("PORT");
+    char listen[256];
     const char *options[7];
     struct mg_callbacks callbacks;
     struct mg_context *context;
-    int port = 8080;
+    int port = 10000;
     if (argc > 1 && strcmp(argv[1], "--self-test") == 0) return runSelfTests();
     if (argc > 1 && strcmp(argv[1], "--print-unsolvable-fixture") == 0) {
         char fixture[CELLS + 1];
@@ -430,9 +432,33 @@ int main(int argc, char **argv) {
         puts(fixture);
         return 0;
     }
-    if (argc > 1) { char *end = NULL; long parsed = strtol(argv[1], &end, 10); if (!end || *end || parsed < 1 || parsed > 65535) { fprintf(stderr, "Port must be between 1 and 65535.\n"); return 2; } port = (int)parsed; }
+    if (!host || !*host) host = "127.0.0.1";
+    if (portSetting && *portSetting) {
+        char *end = NULL;
+        long parsed = strtol(portSetting, &end, 10);
+        if (end == portSetting || *end || parsed < 1 || parsed > 65535) {
+            fprintf(stderr, "PORT must be between 1 and 65535.\n");
+            return 2;
+        }
+        port = (int)parsed;
+    }
+    if (argc > 1) {
+        char *end = NULL;
+        long parsed = strtol(argv[1], &end, 10);
+        if (end == argv[1] || *end || parsed < 1 || parsed > 65535) {
+            fprintf(stderr, "Port must be between 1 and 65535.\n");
+            return 2;
+        }
+        port = (int)parsed;
+    }
     if (argc > 2) root = argv[2];
-    (void)snprintf(listen, sizeof listen, "127.0.0.1:%d", port);
+    {
+        int length = snprintf(listen, sizeof listen, "%s:%d", host, port);
+        if (length < 0 || (size_t)length >= sizeof listen) {
+            fprintf(stderr, "HOST is too long to configure the listener.\n");
+            return 2;
+        }
+    }
     memset(&callbacks, 0, sizeof callbacks); callbacks.log_message = logMessage;
     options[0] = "listening_ports"; options[1] = listen; options[2] = "document_root"; options[3] = root;
     options[4] = "enable_directory_listing"; options[5] = "no"; options[6] = NULL;
@@ -440,7 +466,7 @@ int main(int argc, char **argv) {
     if (!context) { fprintf(stderr, "Could not start server on %s. Check the port and document root.\n", listen); return 1; }
     mg_set_request_handler(context, "/api/", apiHandler, NULL);
     signal(SIGINT, requestStop); signal(SIGTERM, requestStop);
-    printf("Sudoku Studio is running at http://%s\nPress Ctrl+C to stop.\n", listen); fflush(stdout);
+    printf("Sudoku Studio is running on %s\nPress Ctrl+C to stop.\n", listen); fflush(stdout);
     while (!stopRequested) { struct timespec pause = {0, 200000000}; (void)nanosleep(&pause, NULL); }
     mg_stop(context);
     return 0;

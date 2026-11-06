@@ -1,6 +1,6 @@
 # Sudoku Studio
 
-Sudoku Studio is a locally running web application for solving, playing, and checking Sudoku puzzles. The user interface is built with Svelte 5 and Vite. A C11 program using CivetWeb serves the production frontend and performs all Sudoku validation, solving, solution counting, and puzzle generation. The browser communicates with that program over HTTP on `127.0.0.1`; no remote application service or database is used.
+Sudoku Studio is a web application for solving, playing, and checking Sudoku puzzles, designed to run locally or as a Docker web service. The user interface is built with Svelte 5 and Vite. A C11 program using CivetWeb serves the production frontend and performs all Sudoku validation, solving, solution counting, and puzzle generation. The browser communicates with the C API on the same origin; no separate application service or database is required.
 
 ## Table of contents
 
@@ -24,7 +24,7 @@ Sudoku Studio is a locally running web application for solving, playing, and che
 18. [Error handling and design considerations](#18-error-handling-and-design-considerations)
 19. [Third-party dependency and licence](#19-third-party-dependency-and-licence)
 20. [Limitations and future improvements](#20-limitations-and-future-improvements)
-21. [Backup](#21-backup)
+21. [Render deployment with Docker](#21-render-deployment-with-docker)
 
 ## 1. Problem statement
 
@@ -91,14 +91,14 @@ The frontend does not contain Sudoku solving or uniqueness algorithms. Node.js a
 ```mermaid
 flowchart LR
   Browser[Browser interface] -->|Svelte state and Fetch| Frontend[Svelte 5 frontend]
-  Frontend -->|HTTP on 127.0.0.1| Server[CivetWeb in C11]
+  Frontend -->|same-origin HTTP| Server[CivetWeb in C11]
   Server -->|API calls| Engine[Sudoku engine in main.c]
   Engine -->|JSON result| Server
   Server -->|HTTP response| Frontend
   Server -->|Static production files| Browser
 ```
 
-In development, Vite serves the frontend at port `5173` and proxies `/api` to CivetWeb at port `8080`. In production, Vite emits static files into `dist/`; the C executable serves both those files and the API. Both servers bind to loopback during development, and the production C server binds only to `127.0.0.1`.
+In development, Vite serves the frontend at port `5173` and proxies `/api` to CivetWeb at port `8080`. In production, Vite emits static files into `dist/`; the C executable serves both those files and the API. Local servers default to loopback. The Docker image sets `HOST=0.0.0.0` and uses the `PORT` environment variable (default `10000`) so Render can route requests to it.
 
 ## 7. Application workflow
 
@@ -218,6 +218,8 @@ sudoku-studio-final/
 ├── package.json               # Svelte/Vite dependencies and frontend commands
 ├── package-lock.json          # Locked frontend dependency versions
 ├── vite.config.js             # Svelte plugin, dev proxy, and dist output
+├── Dockerfile                 # Multi-stage production container build
+├── .dockerignore              # Excludes local and sensitive files from build context
 ├── third_party/civetweb/      # CivetWeb implementation, header, credits, licence
 ├── scripts/
 │   ├── build.sh               # Vite production build and C compilation
@@ -293,7 +295,7 @@ Build first, then start the C server:
 ./scripts/run-local.sh
 ```
 
-Open <http://127.0.0.1:8080>. The C server binds only to `127.0.0.1` and serves the static files from `dist/`. Stop it with Ctrl+C. No Node process is needed after the build.
+Open <http://127.0.0.1:8080>. The C server defaults to `127.0.0.1` and serves the static files from `dist/`. Stop it with Ctrl+C. No Node process is needed after the build.
 
 ### Development mode
 
@@ -340,7 +342,7 @@ The shell test does not automate browser interaction, responsive screenshots, or
 - The solution counter stops at two because puzzle generation only needs to know whether a puzzle is unique.
 - `preservesClues()` ensures the solver result and manual answer keep all original nonzero cells unchanged.
 - API failures use structured JSON and HTTP 400, 413, or 422 responses as appropriate. Manual check statuses are returned as JSON on HTTP 200 so the UI can display `correct`, `incorrect`, or `incomplete`.
-- The listener is configured as `127.0.0.1:<port>`, not a wildcard interface.
+- Local execution defaults to `127.0.0.1`; the Docker image sets `HOST=0.0.0.0` for Render's web-service routing.
 - Frontend and backend are separate processes in development. In production the C process serves static frontend assets and handles APIs; it does not delegate backend work to Node.
 
 ## 19. Third-party dependency and licence
@@ -352,3 +354,31 @@ CivetWeb v1.16 supplies the embedded HTTP server and static file service. The pr
 The current solver uses row-major first-empty selection and plain candidate iteration. Random difficulty uses approximate clue targets rather than a human solving-technique rating. The custom editor accepts a compact 81-cell grid rather than a visual puzzle-import tool. The included shell checks do not automate a full browser accessibility audit.
 
 Possible future work includes more curated puzzles, human-oriented difficulty classification, candidate heuristics such as minimum-remaining-values search, optional solver-step visualisation, and broader automated browser and accessibility checks. These are extensions, not current features.
+
+## 21. Render deployment with Docker
+
+The root [`Dockerfile`](Dockerfile) builds the frontend with `npm ci` and compiles the C11 server with the vendored CivetWeb source. The final image contains the C executable and Vite's static output; Node.js and the C compiler are only present in build stages. CivetWeb serves the frontend and `/api/*` routes from one origin. The image declares a Docker health check against `/api/health`.
+
+### Deploy on Render
+
+1. In Render, create a **New Web Service** and connect `thekrizan/sudoku-studio`.
+2. Select branch `main` and the **Docker** runtime. Use the repository root as the Docker build context and `Dockerfile` as the Dockerfile path.
+3. Set the HTTP health check path to `/api/health` in the service's advanced settings.
+4. Deploy. No application secrets or additional environment variables are required. Render supplies `PORT`; the image defaults it to `10000` when running elsewhere and binds CivetWeb to `0.0.0.0`.
+
+### Build and run locally
+
+From the repository root:
+
+```sh
+docker build -t sudoku-studio .
+docker run --rm --name sudoku-studio -e PORT=18080 -p 18080:18080 sudoku-studio
+```
+
+Then open <http://127.0.0.1:18080> and check the service with:
+
+```sh
+curl http://127.0.0.1:18080/api/health
+```
+
+To stop the container, press Ctrl+C. The runtime image does not require Node.js.
