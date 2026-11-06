@@ -9,6 +9,7 @@
   let board = $state(Array(81).fill(0));
   let givens = $state(Array(81).fill(false));
   let selected = $state(0);
+  let keypadDismissed = $state(false);
   let busy = $state(false);
   let attempts = $state(0);
   let elapsed = $state(0);
@@ -66,6 +67,7 @@
     invalidCells = [];
     animating = false;
     selected = Math.max(0, board.findIndex((value) => !value));
+    keypadDismissed = false;
     attempts = 0;
     elapsed = 0;
     notify();
@@ -188,6 +190,14 @@
     notify();
   }
 
+  function setSelectedValue(value) {
+    if (busy || givens[selected]) return;
+    board[selected] = value;
+    board = [...board];
+    invalidCells = [];
+    notify();
+  }
+
   // Keyboard input edits only non-clue cells and never steals typing from custom input.
   function enterDigit(event) {
     if (event.target instanceof HTMLTextAreaElement || busy) return;
@@ -197,17 +207,11 @@
     else if (event.key === 'ArrowDown') next = Math.min(80, selected + 9);
     else if (event.key === 'ArrowUp') next = Math.max(0, selected - 9);
     else if (/^[1-9]$/.test(event.key) && !givens[selected]) {
-      board[selected] = Number(event.key);
-      board = [...board];
-      invalidCells = [];
-      notify();
+      setSelectedValue(Number(event.key));
       event.preventDefault();
       return;
     } else if (['Backspace', 'Delete', '0'].includes(event.key) && !givens[selected]) {
-      board[selected] = 0;
-      board = [...board];
-      invalidCells = [];
-      notify();
+      setSelectedValue(0);
       event.preventDefault();
       return;
     } else return;
@@ -270,11 +274,25 @@
             role="gridcell"
             aria-label={`Row ${row + 1}, column ${col + 1}, ${value || 'empty'}${givens[index] ? ', given' : ''}`}
             aria-selected={selected === index}
-            onclick={() => selected = index}
+            onclick={() => { selected = index; keypadDismissed = false; }}
           >{value || ''}</button>
         {/each}
       </div>
       <div class="board-footer"><span><b>{solvedCount}</b> / 81 filled</span><span>Use arrow keys · 1–9 to enter</span></div>
+      {#if !givens[selected] && !keypadDismissed}
+        <section class="mobile-keypad" aria-label="Sudoku number keypad">
+          <div class="keypad-heading">
+            <span>ENTER A NUMBER</span>
+            <button type="button" class="keypad-hide" onclick={() => keypadDismissed = true}>Hide keypad</button>
+          </div>
+          <div class="keypad-grid">
+            {#each [1, 2, 3, 4, 5, 6, 7, 8, 9] as digit}
+              <button type="button" class="keypad-button" aria-label={`Enter ${digit}`} disabled={busy || givens[selected]} onclick={() => setSelectedValue(digit)}>{digit}</button>
+            {/each}
+            <button type="button" class="keypad-button keypad-erase" disabled={busy || givens[selected]} onclick={() => setSelectedValue(0)}>Erase</button>
+          </div>
+        </section>
+      {/if}
     </div>
 
     <aside class="controls">
@@ -307,5 +325,5 @@
     </aside>
   </section>
 
-  <footer><span>Sudoku Studio</span><span>Runs on 127.0.0.1 · no accounts, no cloud</span></footer>
+  <footer><span>Sudoku Studio</span><span>Powered by a C backtracking engine · No account required</span></footer>
 </main>
