@@ -1,0 +1,60 @@
+# Dependencies
+node_modules/
+
+# Generated frontend output
+dist/
+
+# Compiled binaries and build output
+build/
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+
+# Local tools and temporary files
+.tools/
+.cache/
+coverage/
+tmp/
+temp/
+*.log
+
+# Backups and archives
+backups/
+*.tar
+*.tar.gz
+*.zip
+*.bak
+*.old
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+secrets.json
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# Editors and IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Miscellaneous
+.npm/
