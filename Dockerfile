@@ -4,6 +4,7 @@ WORKDIR /src
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY App.svelte index.css index.html index.js vite.config.js ./
+COPY public/ ./public/
 RUN npm run build
 
 FROM alpine:3.22 AS backend-build
